@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BWW State Access Examples</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .example-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #4299e1;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #3182ce;
+        }
+        .output {
+            background: #edf2f7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            min-height: 20px;
+        }
+        h1, h2 {
+            color: #2d3748;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌐 BWW State Global Access Examples</h1>
+    
+    <div class="example-box">
+        <h2>1. Auto-Global State (Recommended)</h2>
+        <p>When you have elements with <code>bww-model</code>, the library automatically creates <code>window.state</code>:</p>
+        
+        <input type="text" bww-model="autoGlobalValue" placeholder="Type here...">
+        <input type="number" bww-model="counter" placeholder="Number">
+        
+        <div class="code">
+            // Access from anywhere:<br>
+            console.log(window.state.autoGlobalValue);<br>
+            console.log(window.bwwState.counter);<br><br>
+            
+            // Modify from anywhere:<br>
+            window.state.autoGlobalValue = "Hello World";<br>
+            window.state.counter = 42;
+        </div>
+        
+        <button onclick="testAutoGlobal()">Test Auto-Global Access</button>
+        <div class="output" id="autoOutput"></div>
+    </div>
+    
+    <div class="example-box">
+        <h2>2. Manual Global Assignment</h2>
+        <p>Create your own global state instance:</p>
+        
+        <div class="code">
+            const myState = new BWWState({ name: 'John', age: 25 });<br>
+            window.myGlobalState = myState;
+        </div>
+        
+        <button onclick="createManualGlobal()">Create Manual Global</button>
+        <button onclick="testManualGlobal()">Test Manual Global</button>
+        <div class="output" id="manualOutput"></div>
+    </div>
+    
+    <div class="example-box">
+        <h2>3. Custom Global Name</h2>
+        <p>Use the factory function with custom global name:</p>
+        
+        <div class="code">
+            const state = createBWWState({ theme: 'dark' }, {<br>
+            &nbsp;&nbsp;global: true,<br>
+            &nbsp;&nbsp;globalName: 'myAppState'<br>
+            });
+        </div>
+        
+        <button onclick="createCustomGlobal()">Create Custom Global</button>
+        <button onclick="testCustomGlobal()">Test Custom Global</button>
+        <div class="output" id="customOutput"></div>
+    </div>
+    
+    <div class="example-box">
+        <h2>4. Browser Console Access</h2>
+        <p>Open your browser's console (F12) and try these commands:</p>
+        
+        <div class="code">
+            // Read values:<br>
+            console.log(state.autoGlobalValue);<br>
+            console.log(state.counter);<br><br>
+            
+            // Set values:<br>
+            state.autoGlobalValue = "Changed from console!";<br>
+            state.counter = Math.random() * 100;<br><br>
+            
+            // Watch the inputs above update automatically! 🎉
+        </div>
+    </div>
+
+    <div class="example-box">
+        <h2>5. Current Global State Values</h2>
+        <button onclick="showAllGlobalValues()">Show All Global Values</button>
+        <pre class="output" id="allValuesOutput"></pre>
+    </div>
+
+    <!-- Include BWW State Library (simplified version) -->
+    <script>
+        class BWWState {
+            constructor(initialState = {}) {
+                this.state = {};
+                this.watchers = new Map();
+                this.computedCache = new Map();
+                this.computedDeps = new Map();
+                this.bindingMap = new Map();
+                
+                Object.keys(initialState).forEach(key => {
+                    this.defineReactive(key, initialState[key]);
+                });
+                
+                return new Proxy(this, {
+                    get(target, prop) {
+                        if (prop in target) {
+                            return target[prop];
+                        }
+                        return target.state[prop];
+                    },
+                    set(target, prop, value) {
+                        if (prop in target) {
+                            target[prop] = value;
+                        } else {
+                            target.setState(prop, value);
+                        }
+                        return true;
+                    }
+                });
+            }
+            
+            defineReactive(key, value) {
+                this.state[key] = value;
+                this.watchers.set(key, new Set());
+                
+                Object.defineProperty(this, key, {
+                    get() { return this.state[key]; },
+                    set(newValue) { this.setState(key, newValue); },
+                    enumerable: true,
+                    configurable: true
+                });
+            }
+            
+            setState(key, value) {
+                const oldValue = this.state[key];
+                if (oldValue === value) return;
+                
+                if (!(key in this.state)) {
+                    this.defineReactive(key, value);
+                    return;
+                }
+                
+                this.state[key] = value;
+                this.notifyWatchers(key, value, oldValue);
+                this.updateBoundElements(key, value);
+            }
+            
+            watch(key, callback, options = {}) {
+                if (!this.watchers.has(key)) {
+                    this.watchers.set(key, new Set());
+                }
+                
+                const watcher = { callback, immediate: options.immediate || false };
+                this.watchers.get(key).add(watcher);
+                
+                if (watcher.immediate) {
+                    callback(this.state[key], undefined);
+                }
+                
+                return () => this.watchers.get(key).delete(watcher);
+            }
+            
+            bindElements() {
+                const elements = document.querySelectorAll('[bww-model]');
+                elements.forEach(element => {
+                    const key = element.getAttribute('bww-model');
+                    
+                    if (!(key in this.state)) {
+                        this.defineReactive(key, this.getElementValue(element));
+                    }
+                    
+                    if (!this.bindingMap.has(key)) {
+                        this.bindingMap.set(key, new Set());
+                    }
+                    this.bindingMap.get(key).add(element);
+                    
+                    this.setElementValue(element, this.state[key]);
+                    this.addElementListeners(element, key);
+                });
+            }
+            
+            notifyWatchers(key, newValue, oldValue) {
+                if (this.watchers.has(key)) {
+                    this.watchers.get(key).forEach(watcher => {
+                        watcher.callback(newValue, oldValue);
+                    });
+                }
+            }
+            
+            updateBoundElements(key, value) {
+                if (this.bindingMap.has(key)) {
+                    this.bindingMap.get(key).forEach(element => {
+                        if (this.getElementValue(element) !== value) {
+                            this.setElementValue(element, value);
+                        }
+                    });
+                }
+            }
+            
+            getElementValue(element) {
+                switch (element.type) {
+                    case 'checkbox': return element.checked;
+                    case 'number': return parseFloat(element.value) || 0;
+                    default: return element.value || element.textContent;
+                }
+            }
+            
+            setElementValue(element, value) {
+                switch (element.type) {
+                    case 'checkbox':
+                        element.checked = Boolean(value);
+                        break;
+                    default:
+                        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                            element.value = value;
+                        } else {
+                            element.textContent = value;
+                        }
+                }
+            }
+            
+            addElementListeners(element, key) {
+                const updateState = () => {
+                    this.setState(key, this.getElementValue(element));
+                };
+                
+                if (element.type === 'checkbox') {
+                    element.addEventListener('change', updateState);
+                } else {
+                    element.addEventListener('input', updateState);
+                }
+            }
+            
+            toJSON() {
+                return JSON.stringify(this.state, null, 2);
+            }
+        }
+
+        // Factory function with global options
+        function createBWWState(initialState, options = {}) {
+            const instance = new BWWState(initialState);
+            
+            if (options.global !== false && typeof window !== 'undefined') {
+                const globalName = options.globalName || 'bwwState';
+                window[globalName] = instance;
+            }
+            
+            return instance;
+        }
+
+        // Auto-initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            const modelElements = document.querySelectorAll('[bww-model]');
+            if (modelElements.length > 0 && !window.bwwState) {
+                window.bwwState = createBWWState({}, { global: true, globalName: 'bwwState' });
+                window.bwwState.bindElements();
+                
+                // Create shorter alias
+                window.state = window.bwwState;
+            }
+        });
+
+        // Demo functions
+        function testAutoGlobal() {
+            const output = document.getElementById('autoOutput');
+            output.innerHTML = `
+                <strong>Auto-Global State Values:</strong><br>
+                window.state.autoGlobalValue = "${window.state?.autoGlobalValue || 'undefined'}"<br>
+                window.state.counter = ${window.state?.counter || 'undefined'}<br>
+                window.bwwState === window.state: ${window.bwwState === window.state}
+            `;
+        }
+
+        function createManualGlobal() {
+            const myState = new BWWState({ name: 'John', age: 25 });
+            window.myGlobalState = myState;
+            
+            document.getElementById('manualOutput').innerHTML = 
+                '<strong>✅ Created window.myGlobalState</strong>';
+        }
+
+        function testManualGlobal() {
+            const output = document.getElementById('manualOutput');
+            if (window.myGlobalState) {
+                output.innerHTML = `
+                    <strong>Manual Global State:</strong><br>
+                    window.myGlobalState.name = "${window.myGlobalState.name}"<br>
+                    window.myGlobalState.age = ${window.myGlobalState.age}
+                `;
+            } else {
+                output.innerHTML = '<strong>❌ Please create manual global first</strong>';
+            }
+        }
+
+        function createCustomGlobal() {
+            const state = createBWWState({ theme: 'dark', version: '1.0' }, {
+                global: true,
+                globalName: 'myAppState'
+            });
+            
+            document.getElementById('customOutput').innerHTML = 
+                '<strong>✅ Created window.myAppState</strong>';
+        }
+
+        function testCustomGlobal() {
+            const output = document.getElementById('customOutput');
+            if (window.myAppState) {
+                output.innerHTML = `
+                    <strong>Custom Global State:</strong><br>
+                    window.myAppState.theme = "${window.myAppState.theme}"<br>
+                    window.myAppState.version = "${window.myAppState.version}"
+                `;
+            } else {
+                output.innerHTML = '<strong>❌ Please create custom global first</strong>';
+            }
+        }
+
+        function showAllGlobalValues() {
+            const globals = {};
+            
+            if (window.state) globals.state = window.state.state;
+            if (window.bwwState) globals.bwwState = window.bwwState.state;
+            if (window.myGlobalState) globals.myGlobalState = window.myGlobalState.state;
+            if (window.myAppState) globals.myAppState = window.myAppState.state;
+            
+            document.getElementById('allValuesOutput').textContent = 
+                JSON.stringify(globals, null, 2);
+        }
+    </script>
+</body>
+</html>

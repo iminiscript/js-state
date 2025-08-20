@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BWW State Management - Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .demo-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        h1, h2, h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+        }
+        
+        input, textarea, select {
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 16px;
+            margin: 8px;
+            min-width: 200px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 8px;
+            transition: background 0.3s ease;
+        }
+        
+        button:hover {
+            background: #5a67d8;
+        }
+        
+        .output {
+            background: #1a202c;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .flex-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .state-display {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            align-items: center;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 BWW State Management Demo</h1>
+        
+        <div class="demo-section">
+            <h2>1. Basic Two-Way Binding (Your Original Example)</h2>
+            <p>Two inputs sharing the same state - changes in one reflect in the other instantly:</p>
+            <div class="flex-row">
+                <input type="text" bww-model="sharedValue" placeholder="Input A">
+                <input type="text" bww-model="sharedValue" placeholder="Input B">
+                <div class="output">Current Value: <span id="sharedDisplay">-</span></div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>2. Different Input Types</h2>
+            <div class="flex-row">
+                <label>Text:</label>
+                <input type="text" bww-model="userName" placeholder="Enter name">
+            </div>
+            <div class="flex-row">
+                <label>Number:</label>
+                <input type="number" bww-model="userAge" min="0" max="120">
+            </div>
+            <div class="flex-row">
+                <label>Range:</label>
+                <input type="range" bww-model="userAge" min="0" max="120">
+                <span>Age: <span id="ageDisplay">0</span></span>
+            </div>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" bww-model="isActive"> Active User
+                </label>
+                <label>
+                    <input type="checkbox" bww-model="notifications"> Enable Notifications
+                </label>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>3. Computed Properties</h2>
+            <p>Full name automatically computed from first and last names:</p>
+            <div class="flex-row">
+                <input type="text" bww-model="firstName" placeholder="First Name">
+                <input type="text" bww-model="lastName" placeholder="Last Name">
+            </div>
+            <div class="state-display">
+                <strong>Computed Full Name:</strong> <span id="fullNameDisplay">-</span>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>4. Watchers & Side Effects</h2>
+            <p>Watch for changes and perform side effects:</p>
+            <div class="flex-row">
+                <input type="text" bww-model="watchedInput" placeholder="Type something...">
+                <button onclick="clearWatchedInput()">Clear</button>
+            </div>
+            <div class="output" id="watcherLog">Waiting for input...</div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>5. Programmatic State Updates</h2>
+            <p>Update state through JavaScript API:</p>
+            <div class="flex-row">
+                <button onclick="updateCounter()">Increment Counter</button>
+                <button onclick="setRandomData()">Set Random Data</button>
+                <button onclick="resetState()">Reset All</button>
+            </div>
+            <div class="flex-row">
+                <input type="number" bww-model="counter" readonly>
+                <label>Counter Value</label>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>6. Current State</h2>
+            <button onclick="showState()">Show Current State</button>
+            <pre class="output" id="stateOutput">Click "Show Current State" to see the current state object</pre>
+        </div>
+    </div>
+
+    <script src="bww-state.js"></script>
+</body>
+</html>
+
